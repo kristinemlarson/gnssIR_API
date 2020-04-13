@@ -1,0 +1,311 @@
+#!/bin/bash
+#
+if [ "$#" -eq 0 ]; then
+  echo "----------------GREETINGS FROM KRISTINE'S REFLECTIONS API---------------------"
+  echo This script runs the archive section of the https://gnss-reflections.org API.  
+  echo There are three required inputs: station, year, and day of year
+  echo If you have your path defined for where you install the script, type something
+  echo like this, where p038 is the station name:
+  echo
+  echo      ./gnssIR_api p038 2019 152
+  echo 
+  echo but if you want to run it in the same folder you are working in:
+  echo
+  echo      ./gnssIR_api p038 2019 152
+  echo
+  echo The rest of the inputs are optional, as in:
+  echo
+  echo -e1 and -e2 for elevation angles in degrees \(defaults are 5 and 25\)
+  echo 
+  echo -azim1 and -azim2 are azimuth angles in degrees \(defaults are 0 and 360\)
+  echo
+  echo -freq can be L1, L2, L2C, L5, or L1L2. Default is L1
+  echo 
+  echo -h1 and -h2 are reflector height constraints in meters. Defaults are 0.5 and 7 meters 
+  echo 
+  echo If you would like to run multiple days, use the optional -doy_end flag
+  echo 
+  echo Quality Control Parameters:
+  echo
+  echo -amp sets the periodogram peak required. The default is 8 - but it is not the right value for all receivers.
+  echo -pk2noise is peak size related to background noise ratio. Four is the default and good for most snow work
+  echo 
+  echo The RINEX file must live in the low-rate section of the UNAVCO, SOPAC, CDDIS, 
+  echo or SONEL archives. 
+  echo
+  echo My API creates a task queue on the site that hosts my API \(heroku\). This usually takes from 5 to 10 seconds to
+  echo complete. This bash script queries the API every two seconds to see if it has completed.
+  echo It saves the results \(and tells you where those are being saved\). If you would prefer a different
+  echo location for your results, change the outputdir variable. The daily set of reflector height 
+  echo outputs includes everything that meets certain quality control metrics.  
+  echo 
+  echo If you input azimuth constraints, the API will output a daily average within those 
+  echo azimuths with additional QC. This is meant to make it easy for the snow/ice communities. 
+  echo This option is NOT appropriate for tides, though it would be appropriate for lake monitoring.
+  echo 
+  echo This script does not check for all possible errors by users. Further, it is not the right place 
+  echo to look for documentation on the API or for questions about what a reflector height is. For that 
+  echo you need to look at the FAQ/overview section at https://gnss-reflections.org
+  echo I am working on adding access to the RINEX uploader in this script, but it is not ready 
+  echo for distribution as yet.
+  echo 
+  echo
+  echo Happy Reflections,
+  echo Kristine M. Larson
+  echo https://kristinelarson.net
+  echo
+  echo Examples:
+  echo 
+  echo Niwot Ridge, Colorado - L2C is in the RINEX files.  Great snow site. 
+  echo   ./gnssIR_api nwot 2019 300 -freq L1L2 -h1 0.5 -h2 8 -azim1 45 -azim2 240 -e1 5 -e2 20
+  echo 
+  echo Phoenix, Ross Ice Shelf, Antarctica - L2C is in the RINEX files
+  echo   ./gnssIR_api phnx 2019 300 -freq L1L2 -h1 0.5 -h2 8 
+  echo 
+  echo Lake Superior, Canada - L1 only as this site does not support modern GPS signal tracking  
+  echo                 restrictions are to emphasize water reflections
+  echo   ./gnssIR_api mchn 2019 205 -azim1 50 -azim2 210 -h1 2.5 -h2 8 -pk2noise 3.5
+  echo 
+  echo Island Park, Idaho - would be better if you had access to L2C. Ask UNAVCO about it.
+  echo   ./gnssIR_api p360 2019 100  -pk2noise 3.5
+  echo 
+  echo 
+ exit
+fi
+#
+# define a new output directory if you like. This one assumes you will put the results in
+# the directory below where you are running this code.
+outputdir='./solutions'
+#
+# defaults for elevation angles (degrees), Reflector Heights (meters) and frequency
+# h1 should never be less than 0.5
+e1=5
+e2=25
+h1=0.5
+h2=7
+freq=L1
+# these are defaults
+pk2noise=4.0
+amp=8
+# declare these variables so they are integers
+declare -i azim1=0
+declare -i azim2=360
+declare -i doy_end=0
+declare -i doy=0
+# This variable just sends output to the screen. Even if you don't set it there will be a daily
+# average file created 
+snow=False
+#
+# I am new to bash scripts - so .... 
+# As long as there is at least one more argument, keep looping
+declare -i k=0
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    k+=1
+    #echo key is $k $key
+    if [ "$k" -eq 1 ]; then
+      station=$key
+      shift
+    elif [ "$k" -eq 2 ]; then
+      year=$key
+      shift
+    elif [ "$k" -eq 3 ]; then
+      doy=$key
+      shift
+    else
+       case "$key" in
+        # This is a flag type option. Will catch either -f or --foo
+        -f|--foo)
+        FOO=1
+        ;;
+        # This is an arg value type option. Will catch -o value or --output-file value
+        -o|--output-file)
+        shift # past the key and to the value
+        OUTPUTFILE="$1"
+        ;;
+        -e1|--min-elev-file)
+        shift # past the key and to the value
+        e1="$1"
+        ;;
+        -e2|--max-elev-file)
+        shift # past the key and to the value
+        e2="$1"
+        ;;
+        -h1|--min-refl-ht)
+        shift # past the key and to the value
+        h1="$1"
+        ;;
+        -h2|--max-refl-ht)
+        shift # past the key and to the value
+        h2="$1"
+        ;;
+        -freq|--frequency)
+        shift # past the key and to the value
+        freq="$1"
+        ;;
+        -amp|--amplitude)
+        shift # past the key and to the value
+        amp="$1"
+        ;;
+        -azim1|--min-azimuth)
+        shift # past the key and to the value
+        azim1="$1"
+        ;;
+        -azim2|--max-azimuth)
+        shift # past the key and to the value
+        azim2="$1"
+        ;;
+        -doy_end|--doy_end)
+        shift # past the key and to the value
+        doy_end="$1"
+        ;;
+        -snow|--snow)
+        shift # past the key and to the value
+        snow="$1"
+        ;;
+
+        *)
+        # Do whatever you want with extra options
+        echo "Unknown option '$key'"
+        ;;
+    esac
+    # Shift after checking all the cases to get the next option
+    shift
+  fi
+done
+
+
+ok=0
+if [ "$freq" == "L1" ] || [ "$freq" == "L2" ]; then
+  ok=1
+  echo You have chosen a legal frequency, $freq
+elif  [ "$freq" == "L1L2" ] || [ "$freq" == "L5" ] || [ "$freq" == "L2C" ] ; then
+  ok=1
+  echo You have chosen a legal frequency, $freq
+fi
+if [ $ok -eq 0 ]; then 
+    echo $freq illegal frequency input, exiting
+    exit
+fi
+# check doy
+if [ $doy -gt 0 ] && [ $doy -lt 367 ]; then
+   echo This is a legal day of year
+else
+   echo This is an illegal day of year.
+   exit
+fi
+# check year
+if [ $year -ge 2000 ] && [ $year -lt 2025 ]; then
+    echo This is a legal year although the year you chose might be in the future
+else 
+    echo This is an illegal year.
+    exit
+fi
+
+# check h2 
+if [ $h2 -gt 25 ] ; then
+    echo The max reflector height you have chosen is too big for the API.
+    echo It must be less than 25 meters. For a typical unobstructed site the 
+    echo reflector height minimum should be 0.5 meters.  For other sites you 
+    echo might restrict the choices to eliminate soil, e.g. you want to only
+    echo see water reflections.
+    exit
+fi
+# make sure the output directories are there
+if [ ! -e "${outputdir}" ]; then
+    echo "making output directory "
+    mkdir "${outputdir}"
+fi
+
+# make sure the output directories are there
+if [ ! -e "${outputdir}/${station}" ]; then
+    echo "making station output directory "
+    mkdir "${outputdir}/$station"
+fi
+
+if [ ! -e "${outputdir}/${station}/${year}" ]; then
+    echo "making station year output directory "
+    mkdir "${outputdir}/${station}/${year}"
+fi
+
+
+# if not set, have doy_end be the same of doy, 
+if [ $doy_end -eq 0 ]; then
+   doy_end=$doy
+fi
+
+# output for daily averages
+comboFile=${outputdir}/${station}_RH_all.csv
+echo Day of Year End is $doy_end
+
+# name for the script that calls the API
+scriptname=xit.${year}.${station}
+# name for the temporary output
+dailyname=test.${year}.${station}
+while [ $doy -le $doy_end ] ; do
+
+echo CHOICES THAT WILL BE SENT TO THE GNSS-IR API
+echo Station $station
+echo Year $year
+echo Day of Year $doy 
+echo Elevation Angle choices $e1 $e2 
+echo Azimuth Angle choices $azim1 $azim2
+echo Reflector Height restrictions $h1 $h2 
+echo Frequency choice $freq	
+echo Amplitude $amp
+echo Peak to Noise $pk2noise
+echo Daily average file with azimuth constraints $comboFile
+
+# calculate string doy with exactly three characters
+  cdoy=$( printf '%03d' $doy )
+
+# make a script to run the webapp
+  rm -f ${scriptname}
+  echo \# > ${scriptname}
+  curl "http://gnss-reflections.org/fancy6?station=${station}&year=${year}&doy=${doy}&freq=${freq}&amp=${amp}&h1=${h1}&h2=${h2}&e1=${e1}&e2=${e2}&pk2noise=${pk2noise}&azim1=${azim1}&azim2=${azim2}" \
+	| grep results2 | awk '{print "curl http://gnss-reflections.org/"substr($6,2,45)}' >> ${scriptname}
+
+# make the script executable
+  chmod +x ${scriptname}
+
+  finished=false
+# check heroku for the results for 36 seconds and then give up
+  x=36
+  while [ "$finished" = false ]
+  do
+    echo checking job status every two seconds. 
+    sleep 2
+    x=$(( $x - 2 ))
+    if [ $x -eq 0 ]; then
+      finished=true
+      echo time has run out, exiting
+    fi
+    rm -f ${dailyname}
+    ./${scriptname} > ${dailyname}
+    var=`grep "still running" ${dailyname} | wc -l`
+    if [ $var -eq 0 ]; then
+      finished=true
+      echo the job has finished
+      var2=`grep "No Results" ${dailyname}  | wc -l`
+      if [ $var2 -eq 1 ]; then
+	   echo ""
+         echo Not saving the result file
+         echo This could mean the RINEX file for station ${station} does not exist at any of the archives. 
+      else
+	 #  print results to the screen for the given day
+         cat ${dailyname}
+         echo moving daily results to ${station}_${year}_${cdoy}.txt in the output directory
+         mv -f ${dailyname}  ${outputdir}/${station}/${year}/${station}_${year}_${cdoy}.txt
+         rm -f ${comboFile}
+	 echo \# https://gnss-reflections.org > ${comboFile}
+	 echo \# Year,DayOfYear,ReflectorHeight\(m\),Month,Day,RHsigma  >> ${comboFile}
+         cat ${outputdir}/${station}/????/*.txt | grep DailyAverage | awk '{print $3"," $4"," $5"," $6"," $7",0"}' >> ${comboFile}
+      fi
+    fi
+  done
+  doy+=1
+# end of doy while loop
+done
+echo Daily averages are stored here: ${comboFile}
+# clean up
+rm -f ${scriptname}
