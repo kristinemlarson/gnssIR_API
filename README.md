@@ -8,25 +8,22 @@ station name, year, and day of year.
 
 To try it out, make sure the script is executable and type (for example):
   
-./gnssIR_api p038 2019 152
+* ./gnssIR_api p038 2019 152
 
 The rest of the inputs are optional, but can be set if you have a preference:
   
-   -e1 and -e2 for elevation angles in degrees (defaults are 5 and 25)
-  
-   -azim1 and -azim2 are azimuth angles in degrees (defaults are 0 and 360)
-  
-   -freq can be L1, L2, L2C, L5, or L1L2. Default is L1
-  
-   -h1 and -h2 are reflector height constraints in meters. Defaults are 0.5 and 7 meters
+*   -e1 and -e2 for elevation angles in degrees (defaults are 5 and 25)
+*   -azim1 and -azim2 are azimuth angles in degrees (defaults are 0 and 360)
+*   -freq can be L1, L2, L2C, L5, or L1L2. Default is L1
+*   -h1 and -h2 are reflector height constraints in meters. Defaults are 0.5 and 7 meters
   
 If you would like to run multiple days, use the optional -doy_end flag
   
 ## Quality Control Parameters:
   
-   -amp sets the periodogram peak required. The default is 8 - but it is not the right value for all receivers.
+*   -amp sets the periodogram peak required. The default is 8 - but it is not the right value for all receivers.
 
-   -pk2noise is peak size related to background noise ratio. Four is the default and good for most snow work
+*   -pk2noise is peak size related to background noise ratio. Four is the default and good for most snow work
 
 ## Daily Average Reflector Height
 This information is stored in the outputdir defined in the script (the default directory is solutions) 
@@ -56,19 +53,19 @@ for distribution as yet.
 
 ## Examples:
   
-Niwot Ridge, Colorado - L2C is in the RINEX files.  Great snow site.
+* Niwot Ridge, Colorado - L2C is in the RINEX files.  Great snow site.
 
      ./gnssIR_api nwot 2019 300 -freq L1L2 -h1 0.5 -h2 8 -azim1 45 -azim2 240 -e1 5 -e2 20
   
-Phoenix, Ross Ice Shelf, Antarctica - L2C is in the RINEX files
+* Phoenix, Ross Ice Shelf, Antarctica - L2C is in the RINEX files. No azimuth restrictions needed because ... it is Antarctica
 
      ./gnssIR_api phnx 2019 300 -freq L1L2 -h1 0.5 -h2 8
   
-Lake Superior, Canada - L1 only as this site does not support modern GPS signal tracking restrictions are to emphasize water reflections
+* Lake Superior, Canada - L1 only as this site does not support modern GPS signal tracking. Azimuth restrictions have been added to emphasize the water reflections of interest.
 
      ./gnssIR_api mchn 2019 205 -azim1 50 -azim2 210 -h1 2.5 -h2 8 -pk2noise 3.5
   
-Island Park, Idaho - would be better if you had access to L2C. Contact UNAVCO.
+* Island Park, Idaho - good snow site. Would be better if you had access to L2C. Contact UNAVCO.
 
      ./gnssIR_api p360 2019 100  -pk2noise 3.5
   
