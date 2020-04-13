@@ -53,6 +53,24 @@ to look for documentation on the API or for questions about what a reflector hei
 you need to look at the FAQ/overview section at https://gnss-reflections.org
 I am working on adding access to the RINEX uploader in this script, but it is not ready
 for distribution as yet.
+
+## Examples:
+  
+Niwot Ridge, Colorado - L2C is in the RINEX files.  Great snow site.
+
+     ./gnssIR_api nwot 2019 300 -freq L1L2 -h1 0.5 -h2 8 -azim1 45 -azim2 240 -e1 5 -e2 20
+  
+Phoenix, Ross Ice Shelf, Antarctica - L2C is in the RINEX files
+
+     ./gnssIR_api phnx 2019 300 -freq L1L2 -h1 0.5 -h2 8
+  
+Lake Superior, Canada - L1 only as this site does not support modern GPS signal tracking restrictions are to emphasize water reflections
+
+     ./gnssIR_api mchn 2019 205 -azim1 50 -azim2 210 -h1 2.5 -h2 8 -pk2noise 3.5
+  
+Island Park, Idaho - would be better if you had access to L2C. Contact UNAVCO.
+
+     ./gnssIR_api p360 2019 100  -pk2noise 3.5
   
 ## Where are the soil moisture results?
 The API does not support soil moisture applications at this time.
