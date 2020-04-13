@@ -6,7 +6,7 @@ To try it out, make sure the script is executable and type:
 ./gnssIR_api p038 2019 152
   
 
-#Inputs
+# Inputs
 The rest of the inputs are optional, but can be set if you have a preference:
   
    -e1 and -e2 for elevation angles in degrees (defaults are 5 and 25)
@@ -19,17 +19,17 @@ The rest of the inputs are optional, but can be set if you have a preference:
   
 If you would like to run multiple days, use the optional -doy_end flag
   
-#Quality Control Parameters:
+# Quality Control Parameters:
   
    -amp sets the periodogram peak required. The default is 8 - but it is not the right value for all receivers.
 
    -pk2noise is peak size related to background noise ratio. Four is the default and good for most snow work
 
-#Daily Average
+# Daily Average Reflector Height
 This information is stored in the outputdir defined in the script (the default directory is solutions) as
 station_RH_all.csv
   
-#Additional Information
+# Additional Information
 The RINEX file must be archived at the locations recognized by the web app.  Currently that 
 is the low-rate sections of UNAVCO, SOPAC, CDDIS, and SONEL.
   
