@@ -4,13 +4,16 @@ This bash script runs the archive section of the https://gnss-reflections.org AP
 ## Inputs
 There are three required inputs: 
 
-station name, year, and day of year.
+* station name (4 characters, lower case), year, and day of year.
 
-To try it out, make sure the script is executable and type (for example):
+For instructions, make sure the script is executable and type its name:
+* ./gnssIR_api
+
+An easy example (for a good reflection site in New Mexico):
   
 * ./gnssIR_api p038 2019 152
 
-The rest of the inputs are optional, but can be set if you have a preference:
+The rest of the inputs to the script are optional, but can be set if you have a preference:
   
 *   -e1 and -e2 for elevation angles in degrees (defaults are 5 and 25)
 *   -azim1 and -azim2 are azimuth angles in degrees (defaults are 0 and 360)

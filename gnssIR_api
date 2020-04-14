@@ -159,6 +159,10 @@ while [[ $# -gt 0 ]]; do
         shift # past the key and to the value
         doy_end="$1"
         ;;
+        -pk2noise |--pk2noise)
+        shift # past the key and to the value
+        pk2noise="$1"
+        ;;
         -snow|--snow)
         shift # past the key and to the value
         snow="$1"
