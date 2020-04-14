@@ -1,13 +1,13 @@
 # gnssIR_api
 This bash script runs the archive section of the https://gnss-reflections.org API.
+For instructions, make sure the script is executable and type its name:
+* ./gnssIR_api
 
 ## Inputs
 There are three required inputs: 
 
 * station name (4 characters, lower case), year, and day of year.
 
-For instructions, make sure the script is executable and type its name:
-* ./gnssIR_api
 
 An easy example (for a good reflection site in New Mexico):
   
