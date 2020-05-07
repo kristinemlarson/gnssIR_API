@@ -49,6 +49,10 @@ if [ "$#" -eq 0 ]; then
   echo I am working on adding access to the RINEX uploader in this script, but it is not ready 
   echo for distribution as yet.
   echo 
+  echo Update: May 7, 2020
+  echo I have added limited RINEX upload cability.  Use -rinex and the filename.  Everything else must
+  echo obey the original rules AND you can only use the frequencies allowed on the RINEX upload web app, i.e. L1, L2, or L5 
+  echo If I get a chance I will add a L1L2 option.  I also still need to provide azimuth constraints.
   echo
   echo Happy Reflections,
   echo Kristine M. Larson
@@ -87,6 +91,7 @@ freq=L1
 # these are defaults
 pk2noise=4.0
 amp=8
+rinex=None
 # declare these variables so they are integers
 declare -i azim1=0
 declare -i azim2=360
@@ -159,6 +164,10 @@ while [[ $# -gt 0 ]]; do
         shift # past the key and to the value
         doy_end="$1"
         ;;
+        -rinex |--rinex)
+        shift # past the key and to the value
+        rinex="$1"
+        ;;
         -pk2noise |--pk2noise)
         shift # past the key and to the value
         pk2noise="$1"
@@ -178,6 +187,7 @@ while [[ $# -gt 0 ]]; do
   fi
 done
 
+echo rinex is $rinex
 
 ok=0
 if [ "$freq" == "L1" ] || [ "$freq" == "L2" ]; then
@@ -240,6 +250,7 @@ fi
 
 # output for daily averages
 comboFile=${outputdir}/${station}_RH_all.csv
+echo Combination File $comboFile
 echo Day of Year End is $doy_end
 
 # name for the script that calls the API
@@ -258,13 +269,41 @@ echo Reflector Height restrictions $h1 $h2
 echo Frequency choice $freq	
 echo Amplitude $amp
 echo Peak to Noise $pk2noise
-echo Daily average file with azimuth constraints $comboFile
 
 # calculate string doy with exactly three characters
   cdoy=$( printf '%03d' $doy )
 
 # make a script to run the webapp
   rm -f ${scriptname}
+  if [ $rinex = None ];  then
+     echo Archive section 
+  else
+     echo Uploading RINEX
+     rm -f out.txt xit 
+     curl -F "file=@${rinex}" -F "freq=${freq}" -F "h1=${h1}" -F "h2=${h2}" -F "e1=${e1}" -F "e2=${e2}" -F "pk2noise=${pk2noise}" -F "amp=${amp}" "http://trywithgps2.herokuapp.com/fancy6" > out.txt
+     var=`grep Numerical out.txt | wc -l`
+     echo $var
+     if [ $var -lt 1 ]; then
+        echo Nothing came back from the app. This usually means you have uploaded an illegal RINEX file
+        echo or used an illegal RINEX filename. Right now I do not return detailed information if you are
+        echo accessing the API via this bash script.  Rules on RINEX files and their naming conventions
+	echo The allowed frequencies are slightly different from the archive section, so check that as well.
+	echo Exiting
+	exit
+     fi
+     echo \# > xit
+     cat out.txt | grep Numerical | awk '{print "curl https://gnss-reflections.org/"substr($2,7,26) }' >> xit
+     cat xit
+     chmod +x xit
+     ./xit > ${dailyname}
+     echo moving daily results to ${station}_${year}_${cdoy}.txt in the output directory
+     mv -f ${dailyname}  ${outputdir}/${station}/${year}/${station}_${year}_${cdoy}.txt
+     rm -f ${comboFile}
+     echo \# https://gnss-reflections.org > ${comboFile}
+     echo \# Year,DayOfYear,ReflectorHeight\(m\),Month,Day,RHsigma  >> ${comboFile}
+     cat ${outputdir}/${station}/????/*.txt | grep DailyAverage | awk '{print $3"," $4"," $5"," $6"," $7",0"}' >> ${comboFile}
+     exit
+  fi
   echo \# > ${scriptname}
   curl "http://gnss-reflections.org/fancy6?station=${station}&year=${year}&doy=${doy}&freq=${freq}&amp=${amp}&h1=${h1}&h2=${h2}&e1=${e1}&e2=${e2}&pk2noise=${pk2noise}&azim1=${azim1}&azim2=${azim2}" \
 	| grep results2 | awk '{print "curl http://gnss-reflections.org/"substr($6,2,45)}' >> ${scriptname}
