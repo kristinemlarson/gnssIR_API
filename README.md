@@ -72,6 +72,13 @@ for distribution as yet.
 
      ./gnssIR_api p360 2019 100  -pk2noise 3.5
   
+
+## Recent Updates
+
+Limited RINEX uploading capability is now allowed. Use the -rinex flag and the name of the file. Everything else
+has to obey the limits of the web app (i.e. RINEX 2.11, L1, L2, L2C, or L5). The RINEX file can have gz or Z compression.
+I believe it can be Hatanaka compressed.
+
 ## Where are the soil moisture results?
 The API does not support soil moisture applications at this time.
 
