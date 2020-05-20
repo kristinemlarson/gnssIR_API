@@ -80,7 +80,7 @@ has to obey the limits of the web app (i.e. RINEX 2.11, L1, L2, L2C, or L5). The
 I believe it can be Hatanaka compressed.
 
 ## Where are the soil moisture results?
-The API does not support soil moisture applications at this time.
+Adding soil moisture to this API would require external support.
 
 Kristine M. Larson
 
