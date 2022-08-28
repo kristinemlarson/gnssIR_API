@@ -15,15 +15,21 @@ if [ "$#" -eq 0 ]; then
   echo
   echo The rest of the inputs are optional, as in:
   echo
+  echo -rinex is for RINEX file uploads
+  echo
   echo -e1 and -e2 for elevation angles in degrees \(defaults are 5 and 25\)
   echo 
   echo -azim1 and -azim2 are azimuth angles in degrees \(defaults are 0 and 360\)
   echo
-  echo -freq can be L1, L2, L2C, L5, or L1L2. Default is L1
+  echo -freq can be L1, L2, L2C, L5, L1L2CL5, or L1L2. Default is L1
   echo 
+  echo -amp is the minimum required amplitude
+  echo
+  echo -pk2noise is a qualitry control metric calculated by the peak in the periodogram divided by the average periodogram value over the RH range
+  echo
   echo -h1 and -h2 are reflector height constraints in meters. Defaults are 0.5 and 7 meters 
   echo 
-  echo If you would like to run multiple days, use the optional -doy_end flag
+  echo If you would like to run multiple days, use the optional -doy_end flag \(LOOKS LIKE THIS HAS NOT BEEN IMPLEMENTED \)
   echo 
   echo Quality Control Parameters:
   echo
@@ -54,9 +60,20 @@ if [ "$#" -eq 0 ]; then
   echo obey the original rules AND you can only use the frequencies allowed on the RINEX upload web app, i.e. L1, L2, or L5 
   echo If I get a chance I will add a L1L2 option.  I also still need to provide azimuth constraints.
   echo
+  echo Update: August 26, 2022
+  echo I have added L1L2, L1L2CL5 to frequency options
+  echo the API at \https://gnss-reflections.org itself now allows up to 25 observable types in the RINEX 2.11 files.
+  echo It is GPS only and only allows RH values up to 25 meters.
+  echo You are further cautioned that using GPS files with 30 second sampling intervals 
+  echo can be dangerous for RH \> 10 meters.
+  echo 
+  echo It looks like the doy_end option has not been implemented. 
+  echo
+  echo
   echo Happy Reflections,
   echo Kristine M. Larson
   echo https://kristinelarson.net
+  echo 2022 August 26
   echo
   echo Examples:
   echo 
@@ -90,7 +107,7 @@ h2=7
 freq=L1
 # these are defaults
 pk2noise=4.0
-amp=8
+amp=5
 rinex=None
 # declare these variables so they are integers
 declare -i azim1=0
@@ -190,13 +207,17 @@ done
 echo rinex is $rinex
 
 ok=0
-if [ "$freq" == "L1" ] || [ "$freq" == "L2" ]; then
+if [ "$freq" == "L1" ] || [ "$freq" == "L2" ] ; then
   ok=1
   echo You have chosen a legal frequency, $freq
-elif  [ "$freq" == "L1L2" ] || [ "$freq" == "L5" ] || [ "$freq" == "L2C" ] ; then
+elif [ "$freq" == "L5" ] ; then
+  ok=1
+  echo You have chosen a legal frequency, $freq
+elif  [ "$freq" == "L1L2" ] || [ "$freq" == "L2C" ] || [ "$freq" == "L1L2CL5" ]; then
   ok=1
   echo You have chosen a legal frequency, $freq
 fi
+
 if [ $ok -eq 0 ]; then 
     echo $freq illegal frequency input, exiting
     exit
@@ -252,6 +273,7 @@ fi
 comboFile=${outputdir}/${station}_RH_all.csv
 echo Combination File $comboFile
 echo Day of Year End is $doy_end
+echo Look for solutions in the $outputdir directory
 
 # name for the script that calls the API
 scriptname=xit.${year}.${station}
@@ -269,6 +291,7 @@ echo Reflector Height restrictions $h1 $h2
 echo Frequency choice $freq	
 echo Amplitude $amp
 echo Peak to Noise $pk2noise
+echo End day of year $doy_end
 
 # calculate string doy with exactly three characters
   cdoy=$( printf '%03d' $doy )
@@ -280,7 +303,7 @@ echo Peak to Noise $pk2noise
   else
      echo Uploading RINEX
      rm -f out.txt xit 
-     curl -F "file=@${rinex}" -F "freq=${freq}" -F "h1=${h1}" -F "h2=${h2}" -F "e1=${e1}" -F "e2=${e2}" -F "pk2noise=${pk2noise}" -F "amp=${amp}" "http://trywithgps2.herokuapp.com/fancy6" > out.txt
+     curl -F "file=@${rinex}" -F "azim1=${azim1}" -F "azim2=${azim2}" -F "freq=${freq}" -F "h1=${h1}" -F "h2=${h2}" -F "e1=${e1}" -F "e2=${e2}" -F "pk2noise=${pk2noise}" -F "amp=${amp}" "http://trywithgps2.herokuapp.com/api" > out.txt
      var=`grep Numerical out.txt | wc -l`
      echo $var
      if [ $var -lt 1 ]; then
@@ -296,7 +319,9 @@ echo Peak to Noise $pk2noise
      cat xit
      chmod +x xit
      ./xit > ${dailyname}
-     echo moving daily results to ${station}_${year}_${cdoy}.txt in the output directory
+     # print to screen
+     cat ${dailyname}
+     echo Now moving daily results to ${station}_${year}_${cdoy}.txt in the output directory
      mv -f ${dailyname}  ${outputdir}/${station}/${year}/${station}_${year}_${cdoy}.txt
      rm -f ${comboFile}
      echo \# https://gnss-reflections.org > ${comboFile}
@@ -305,7 +330,7 @@ echo Peak to Noise $pk2noise
      exit
   fi
   echo \# > ${scriptname}
-  curl "http://gnss-reflections.org/fancy6?station=${station}&year=${year}&doy=${doy}&freq=${freq}&amp=${amp}&h1=${h1}&h2=${h2}&e1=${e1}&e2=${e2}&pk2noise=${pk2noise}&azim1=${azim1}&azim2=${azim2}" \
+  curl "http://gnss-reflections.org/api?station=${station}&year=${year}&doy=${doy}&freq=${freq}&amp=${amp}&h1=${h1}&h2=${h2}&e1=${e1}&e2=${e2}&pk2noise=${pk2noise}&azim1=${azim1}&azim2=${azim2}" \
 	| grep results2 | awk '{print "curl http://gnss-reflections.org/"substr($6,2,45)}' >> ${scriptname}
 
 # make the script executable
@@ -350,5 +375,6 @@ echo Peak to Noise $pk2noise
 # end of doy while loop
 done
 echo Daily averages are stored here: ${comboFile}
+echo Output directory ${outputdir}
 # clean up
 rm -f ${scriptname}
