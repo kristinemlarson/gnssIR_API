@@ -25,13 +25,12 @@ if [ "$#" -eq 0 ]; then
   echo 
   echo -amp is the minimum required amplitude
   echo
-  echo -pk2noise is a qualitry control metric calculated by the peak in the 
-  echo   periodogram divided by the average periodogram value over the RH range
+  echo -pk2noise is a qualitry control metric calculated by the peak in the periodogram divided by the average periodogram value over the RH range
   echo
   echo -h1 and -h2 are reflector height constraints in meters. Defaults are 0.5 and 7 meters 
   echo 
-  echo If you would like to run multiple days, use the optional -doy_end flag 
-  cho 
+  echo If you would like to run multiple days, use the optional -doy_end flag \(LOOKS LIKE THIS HAS NOT BEEN IMPLEMENTED \)
+  echo 
   echo Quality Control Parameters:
   echo
   echo -amp sets the periodogram peak required. The default is 8 - but it is not the right value for all receivers.
@@ -52,13 +51,29 @@ if [ "$#" -eq 0 ]; then
   echo 
   echo This script does not check for all possible errors by users. Further, it is not the right place 
   echo to look for documentation on the API or for questions about what a reflector height is. For that 
-  echo you need to look at the FAQ/overview section at https://gnss-reflections.org or 
-  echo to the open source code at https://github.com/kristinemlarson/gnssrefl
+  echo you need to look at the FAQ/overview section at https://gnss-reflections.org
+  echo I am working on adding access to the RINEX uploader in this script, but it is not ready 
+  echo for distribution as yet.
   echo 
+  echo Update: May 7, 2020
+  echo I have added limited RINEX upload cability.  Use -rinex and the filename.  Everything else must
+  echo obey the original rules AND you can only use the frequencies allowed on the RINEX upload web app, i.e. L1, L2, or L5 
+  echo If I get a chance I will add a L1L2 option.  I also still need to provide azimuth constraints.
   echo
+  echo Update: August 26, 2022
+  echo I have added L1L2, L1L2CL5 to frequency options
+  echo the API at \https://gnss-reflections.org itself now allows up to 25 observable types in the RINEX 2.11 files.
+  echo It is GPS only and only allows RH values up to 25 meters.
+  echo You are further cautioned that using GPS files with 30 second sampling intervals 
+  echo can be dangerous for RH \> 10 meters.
+  echo 
+  echo It looks like the doy_end option has not been implemented. 
+  echo
+  echo
+  echo Happy Reflections,
   echo Kristine M. Larson
   echo https://kristinelarson.net
-  echo 2022 December 12
+  echo 2022 August 26
   echo
   echo Examples:
   echo 
@@ -78,21 +93,6 @@ if [ "$#" -eq 0 ]; then
   echo 
  exit
 fi
-
-running_local=true
-
-
-if [ "$running_local" = true ]; then
-  echo running local
-  heroku="http://127.0.0.1:5000/newapi"
-  heroku0="http://127.0.0.1:5000/newapi"
-
-else
-  echo not running local
-  heroku="https://gnss-reflections.org/newapi"
-  heroku0="http://trywithgps2.herokuapp.com/newapi"
-fi
-
 #
 # define a new output directory if you like. This one assumes you will put the results in
 # the directory below where you are running this code.
@@ -278,100 +278,103 @@ echo Look for solutions in the $outputdir directory
 # name for the script that calls the API
 scriptname=xit.${year}.${station}
 # name for the temporary output
+dailyname=test.${year}.${station}
+while [ $doy -le $doy_end ] ; do
 
 echo CHOICES THAT WILL BE SENT TO THE GNSS-IR API
 echo Station $station
-#echo Year $year
-#echo Day of Year $doy 
+echo Year $year
+echo Day of Year $doy 
 echo Elevation Angle choices $e1 $e2 
 echo Azimuth Angle choices $azim1 $azim2
 echo Reflector Height restrictions $h1 $h2 
 echo Frequency choice $freq	
 echo Amplitude $amp
 echo Peak to Noise $pk2noise
-#echo End day of year $doy_end
-
-while [ $doy -le $doy_end ] ; do
-  rm -f out.json
-  echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
-  echo Analyzing Station $station Year $year Day of Year $doy
-  dailyname=test.${year}.${station}
+echo End day of year $doy_end
 
 # calculate string doy with exactly three characters
   cdoy=$( printf '%03d' $doy )
 
+# make a script to run the webapp
+  rm -f ${scriptname}
   if [ $rinex = None ];  then
-     echo You are using the archive section of the API
-     curl  ${heroku}"?station=${station}&year=${year}&doy=${doy}&freq=${freq}&amp=${amp}&h1=${h1}&h2=${h2}&e1=${e1}&e2=${e2}&pk2noise=${pk2noise}&azim1=${azim1}&azim2=${azim2}&jsononly=True" -o out.json --silent
-     # this is where the results will be
-     resultnow=`cat  out.json | grep fileAddress | awk '{print substr($2,2,86)}'`
-     # this is the status information
-     statusnow=`cat  out.json | grep status  | awk '{print substr($2,2,65)}' | tr "," " " `
-
-     finished=false
-     x=20
-     while [ "$finished" = false ]
-     do
-       echo Checking job status. 
-       sleep 2
-       x=$(( $x - 2 ))
-       if [ $x -eq 0 ]; then
-         finished=true
-         echo time has run out, exiting
-       fi
-       rm -f tmp.json
-       curl ${statusnow} --silent > tmp.json 
-       var=`grep "finished" tmp.json | wc -l`
-       if [ $var -eq 1 ]; then
-         finished=true
-         echo the job has finished
-         #echo moving daily results to ${station}_${year}_${cdoy}.txt in the output directory
-         curl --silent ${resultnow} > tmpfile
-      # look for error messages which means data were not found
-         var2=`grep "Error" tmpfile | wc -l`
-
-         if [ $var2 -eq 0 ]; then
-	    echo API for year $year and day of year $doy seems to have worked, ${outputdir}/${station}/${year}/${station}_${year}_${cdoy}.txt
-            mv tmpfile ${outputdir}/${station}/${year}/${station}_${year}_${cdoy}.txt
-	 # make a new combination file
-         fi
-         rm -f tmpfile
-       fi
-    done
-
+     echo Archive section 
   else
-     if test -f "$rinex"; then
-        echo "The RINEX file exists. Uploading."
-     else
-        echo "The RINEX file you submitted does not exist. Exiting."
+     echo Uploading RINEX
+     rm -f out.txt xit 
+     curl -F "file=@${rinex}" -F "azim1=${azim1}" -F "azim2=${azim2}" -F "freq=${freq}" -F "h1=${h1}" -F "h2=${h2}" -F "e1=${e1}" -F "e2=${e2}" -F "pk2noise=${pk2noise}" -F "amp=${amp}" "http://trywithgps2.herokuapp.com/api" > out.txt
+     var=`grep Numerical out.txt | wc -l`
+     echo $var
+     if [ $var -lt 1 ]; then
+        echo Nothing came back from the app. This usually means you have uploaded an illegal RINEX file
+        echo or used an illegal RINEX filename. Right now I do not return detailed information if you are
+        echo accessing the API via this bash script.  Rules on RINEX files and their naming conventions
+	echo The allowed frequencies are slightly different from the archive section, so check that as well.
+	echo Exiting
 	exit
      fi
-     curl --silent -F "file=@${rinex}" -F "jsononly=True" -F "azim1=${azim1}" -F "azim2=${azim2}" -F "freq=${freq}" -F "h1=${h1}" -F "h2=${h2}" -F "e1=${e1}" -F "e2=${e2}" -F "pk2noise=${pk2noise}" -F "amp=${amp}" ${heroku0} -o out.json
-     error3=`grep errormessage out.json | wc -l`
-     if [ $error3 -eq 1 ]; then
-	 echo problem with your file
-	 cat out.json
-	 exit
-     fi
-     resultnow=`cat  out.json | grep fileAddress | awk '{print substr($2,2,86)}'`
-     curl --silent $resultnow > tmpfile
-     mv tmpfile ${outputdir}/${station}/${year}/${station}_${year}_${cdoy}.txt
-     echo Results stored in ${outputdir}/${station}/${year}/${station}_${year}_${cdoy}.txt
-
+     echo \# > xit
+     cat out.txt | grep Numerical | awk '{print "curl https://gnss-reflections.org/"substr($2,7,26) }' >> xit
+     cat xit
+     chmod +x xit
+     ./xit > ${dailyname}
+     # print to screen
+     cat ${dailyname}
+     echo Now moving daily results to ${station}_${year}_${cdoy}.txt in the output directory
+     mv -f ${dailyname}  ${outputdir}/${station}/${year}/${station}_${year}_${cdoy}.txt
+     rm -f ${comboFile}
+     echo \# https://gnss-reflections.org > ${comboFile}
+     echo \# Year,DayOfYear,ReflectorHeight\(m\),Month,Day,RHsigma  >> ${comboFile}
+     cat ${outputdir}/${station}/????/*.txt | grep DailyAverage | awk '{print $3"," $4"," $5"," $6"," $7",0"}' >> ${comboFile}
+     exit
   fi
-  doy=$(( $doy + 1 ))
+  echo \# > ${scriptname}
+  curl "http://gnss-reflections.org/api?station=${station}&year=${year}&doy=${doy}&freq=${freq}&amp=${amp}&h1=${h1}&h2=${h2}&e1=${e1}&e2=${e2}&pk2noise=${pk2noise}&azim1=${azim1}&azim2=${azim2}" \
+	| grep results2 | awk '{print "curl http://gnss-reflections.org/"substr($6,2,45)}' >> ${scriptname}
 
-done     # end of doy while loop
+# make the script executable
+  chmod +x ${scriptname}
 
-rm -f ${comboFile}
-echo Combine the results into one file 
-echo \# https://gnss-reflections.org > ${comboFile}
-echo \# Year,DayOfYear,ReflectorHeight\(m\),Month,Day,RHsigma  >> ${comboFile}
-cat ${outputdir}/${station}/????/*.txt | grep DailyAverage | awk '{print $3"," $4"," $5"," $6"," $7",0"}' >> ${comboFile}
-
-
+  finished=false
+# check heroku for the results for 36 seconds and then give up
+  x=36
+  while [ "$finished" = false ]
+  do
+    echo checking job status every two seconds. 
+    sleep 2
+    x=$(( $x - 2 ))
+    if [ $x -eq 0 ]; then
+      finished=true
+      echo time has run out, exiting
+    fi
+    rm -f ${dailyname}
+    ./${scriptname} > ${dailyname}
+    var=`grep "still running" ${dailyname} | wc -l`
+    if [ $var -eq 0 ]; then
+      finished=true
+      echo the job has finished
+      var2=`grep "No Results" ${dailyname}  | wc -l`
+      if [ $var2 -eq 1 ]; then
+	   echo ""
+         echo Not saving the result file
+         echo This could mean the RINEX file for station ${station} does not exist at any of the archives. 
+      else
+	 #  print results to the screen for the given day
+         cat ${dailyname}
+         echo moving daily results to ${station}_${year}_${cdoy}.txt in the output directory
+         mv -f ${dailyname}  ${outputdir}/${station}/${year}/${station}_${year}_${cdoy}.txt
+         rm -f ${comboFile}
+	 echo \# https://gnss-reflections.org > ${comboFile}
+	 echo \# Year,DayOfYear,ReflectorHeight\(m\),Month,Day,RHsigma  >> ${comboFile}
+         cat ${outputdir}/${station}/????/*.txt | grep DailyAverage | awk '{print $3"," $4"," $5"," $6"," $7",0"}' >> ${comboFile}
+      fi
+    fi
+  done
+  doy+=1
+# end of doy while loop
+done
 echo Daily averages are stored here: ${comboFile}
 echo Output directory ${outputdir}
 # clean up
-rm -f out.json
-rm -f tmp.json
+rm -f ${scriptname}
