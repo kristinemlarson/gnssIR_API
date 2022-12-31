@@ -1,5 +1,9 @@
 #!/bin/bash
 #
+echo this was the first version of the gnssIR_api script.  It will not work anymore.
+echo exiting 
+exit
+
 if [ "$#" -eq 0 ]; then
   echo "----------------GREETINGS FROM KRISTINE'S REFLECTIONS API---------------------"
   echo This script runs the archive section of the https://gnss-reflections.org API.  
