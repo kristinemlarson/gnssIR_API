@@ -1,3 +1,10 @@
+## 
+
+The GNSS-IR api has been turned off for quite some time, so this repository is being archived.
+
+September 19, 2026
+Kristine M. Larson
+
 ## gnssIR_api
 This bash script runs the archive section of the https://gnss-reflections.org API.
 For instructions, make sure the script is executable (chmod +x gnssIR_api) and type its name:
